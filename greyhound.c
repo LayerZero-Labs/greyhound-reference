@@ -31,9 +31,12 @@ static int init_polcomctx(polcomctx *ctx, size_t len) {
       ctx->m = round(sqrt(len*(cpp->kappa+1)/2.0));
       ctx->n = ceil((double)len/ctx->m);
 
-      varz = exp2(2*cpp->b)/12*ctx->n*(TAU1+4*TAU2);
+      /* The top source digit has LOGQ-(f-1)*b bits, which need not equal b.
+       * Average all f digit variances when predicting the folded witness. */
+      varz = (exp2(2*cpp->b)*(cpp->f - 1) +
+              exp2(2*(LOGQ - (cpp->f - 1)*cpp->b)))/(12*cpp->f);
+      varz *= ctx->n*(TAU1+4*TAU2);
       cpp->bu = round(0.25*log2(12*varz));  // z (decomposed)
-      //cpp->bu = round(0.5*cpp->b + 0.25*log2(ctx->n) + 0.25*log2(TAU1+4*TAU2)));
       cpp->fu = round((double)LOGQ/cpp->bu);
 
       ctx->normsq  = (exp2(2*cpp->bu)/12 + varz/exp2(2*cpp->bu))*ctx->m*cpp->f;
