@@ -43,28 +43,26 @@ the accounting boundary explicitly instead of claiming a one-to-one mapping.
 The security mode is a concrete parameter-estimation policy, not an end-to-end
 security proof or implementation audit.
 
-## Sparse-ternary benchmark results
+## Current tight-bound reference results
 
-The current AVX-512 comparison uses matched deterministic witnesses and the
-`l2-quantum128-adps16` policy. Five after-runs give the following contextual
-proof sizes; the minimum-security column covers every accepted SIS instance in
-those runs.
+The current implementation was measured locally on an Apple M4 Max with the
+portable backend, eight worker threads, and the `l2-quantum128-adps16` policy.
+Each row compares five successful, matched deterministic runs at base commit
+`687a6f8` with the tight-bound implementation at `4f419a9`. Sizes are exact
+contextual proof bytes; ranges and minimum-security values describe the current
+implementation.
 
-| Degree | Median proof bytes | Observed range | Top rank `kappa/kappa1` | Pack members | Minimum quantum bits |
-|---:|---:|---:|---:|---:|---:|
-| 2^22 | 59,267 | 59,247–59,329 | 22/8 | 7 | 129.055 |
-| 2^24 | 59,060 | 59,056–60,704 | 23/9 | 7 | 128.260 |
-| 2^26 | 64,509 | 62,434–64,666 | 24/9 | 7–8 | 131.970 |
+| Degree | Median proof bytes, base -> current | Current range | Top shape, base -> current | Top rank `kappa/kappa1`, base -> current | Pack members, base -> current | Minimum quantum bits |
+|---:|---:|---:|---:|---:|---:|---:|
+| `2^20` | 55,574 -> 56,345 (+1.39%) | 56,263–58,687 | `425x39 -> 434x38` | `21/7 -> 22/7` | `6 -> 6–7` | 128.260 |
+| `2^21` | 56,677 -> 59,328 (+4.68%) | 59,258–59,356 | `614x54` | `22/8` | `6–7 -> 7` | 128.260 |
+| `2^22` | 59,284 -> 60,101 (+1.38%) | 60,016–60,111 | `868x76 -> 887x74` | `22/8 -> 23/8` | `7` | 128.525 |
 
-Compared with the old dense-sign implementation, the two-worker sparse-ternary
-prover is 2% faster at `2^22`, 9% slower at `2^24` after its required outer-rank
-increase, and 4% faster at `2^26`. Verification is 8–10% faster across the
-three sizes. Exact proof bytes are nearly unchanged at `2^22` and `2^24`; at
-`2^26`, the corrected schedule can add a fold and raises the paired median by
-1.81%. See
-[BENCHMARKS.md](BENCHMARKS.md) for standalone matrix/projection/collapse costs,
-whole-path timing and memory, proof-size decomposition, parameter changes, and
-reproduction commands.
+The source-dependent branch of the LaBRADOR maximum did not dominate any
+honest fold in these runs. One accepted `2^21` fold used grind nonce 1; all
+other accepted folds used nonce 0. See [BENCHMARKS.md](BENCHMARKS.md) for the
+complete bound formulas, component medians, sampling record, reproduction
+commands, and the historical sparse-ternary JL comparison at `687a6f8`.
 
 ## What this fork adds
 
@@ -75,6 +73,8 @@ reproduction commands.
 - Explicit, per-fold parameter and Module-SIS audit reports.
 - A selectable Euclidean SIS policy targeting 128-bit quantum security under
   the ADPS16 core-SVP cost model.
+- Protocol-derived collision bounds shared by parameter selection, fold
+  grinding, verifier checks, and audit output.
 - Tight context-dependent proof serialization and separate self-describing
   archival serialization.
 - Round-trip, canonical-encoding, truncation, and estimator regression tests.
@@ -161,18 +161,44 @@ policy.
 
 ## SIS security policy
 
-The default `legacy-heuristic` policy preserves the upstream parameter
-selection. Set
+The default `legacy-heuristic` policy retains the upstream closed-form rank
+predicate, but applies it to the current collision bounds. It does not reproduce
+the old schedule after a bound changes. Set
 `LABRADOR_SIS_SECURITY=l2-quantum128-adps16` to require every concrete
 Greyhound/Labrador Module-SIS instance to meet a 128-bit quantum floor under
 the local Euclidean SIS estimator and the ADPS16 quantum core-SVP cost
 `log2(operations) = 0.265 * beta`.
 
+The estimator receives the collision bound required by the corresponding
+extraction argument. Write `B = 2^((f-1)*b)`, let `beta` be the source
+relation's public L2 bound, let `beta_prime` be the target relation's L2 bound,
+and let `s = sqrt(128/29)` be the implementation's JL slack. The bounds are:
+
+```text
+Greyhound root:
+    8*T*(B+1)*s*beta_prime
+
+Recursive Labrador fold:
+    max(8*T*(B+1)*s*beta_prime,
+        2*(B+1)*s*beta_prime + 4*T*s*beta)
+
+Terminal Labrador fold with a directly checked target witness:
+    max(8*T*(B+1)*beta_prime,
+        2*(B+1)*beta_prime + 4*T*s*beta)
+```
+
+The Greyhound expression uses the tight `2*kappa_bar*beta_bar` inequality
+proved in the body of Greyhound Lemma 2.11. The Labrador expressions implement
+Theorem 5.1 and apply Remark 5.2 only when the target norm is recursively
+certified. The verifier obtains `beta` from the public input statement and
+combines it with the target norm carried by the proof; the prover cannot choose
+both sides of the comparison.
+
 The selected inner and outer commitment ranks are increased until all matrix
 roles pass, and verification repeats the same checks. Every norm-producing
 fold—the Greyhound root, ordinary Labrador levels, and the terminal level—also
 grinds a transcript-bound 32-bit nonce until the realized response satisfies
-all of that level's inner and outer SIS predicates. Ordinary levels keep their
+all applicable inner and outer SIS predicates. Ordinary levels keep their
 commitments fixed and recompute only the folding challenges and `z`. Nonce zero
 preserves the original transcript exactly; retries are domain-separated. The
 terminal level keeps `t` fixed and recomputes its dependent sequential `h`,

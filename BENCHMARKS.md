@@ -1,4 +1,121 @@
-# Sparse-ternary JL before/after benchmarks
+# Benchmark reports
+
+This document separates two experiments:
+
+1. a current comparison of the tight inner-commitment bounds against base
+   commit `687a6f8`;
+2. the historical dense-sign versus sparse-ternary JL comparison whose
+   sparse-ternary endpoint is `687a6f8`.
+
+## Tight inner-commitment bound follow-up
+
+Measured on 2026-09-10 on an Apple M4 Max with 64 GiB RAM, macOS 26.6.2,
+Apple Clang 21.0.0, and the portable backend. Runs used eight worker threads
+and `LABRADOR_SIS_SECURITY=l2-quantum128-adps16`.
+
+The comparison uses the public repository states directly:
+
+- **Before:** commit `687a6f8`, which uses `6*T*B*s*beta_prime` for the
+  Greyhound and LaBRADOR inner commitments.
+- **After:** implementation commit `4f419a9`, which uses the tight Greyhound
+  bound and the full LaBRADOR Theorem 5.1 maximum described below.
+
+For an `f`-part radix-`2^b` decomposition, define
+`B = 2^((f-1)*b)`. Let `beta` be the source relation's public L2 bound,
+`beta_prime` the target relation's L2 bound, and
+`s = SLACK = sqrt(128/29)`. The current implementation uses:
+
+```text
+Greyhound root:
+    8*T*(B+1)*s*beta_prime
+
+Recursive LaBRADOR fold:
+    max(8*T*(B+1)*s*beta_prime,
+        2*(B+1)*s*beta_prime + 4*T*s*beta)
+
+Terminal LaBRADOR fold with a directly checked target witness:
+    max(8*T*(B+1)*beta_prime,
+        2*(B+1)*beta_prime + 4*T*s*beta)
+```
+
+The Greyhound root uses the tight inequality proved in the body of Lemma 2.11
+of the [Greyhound paper](https://eprint.iacr.org/2024/1293). The recursive and
+terminal formulas implement Theorem 5.1 and Remark 5.2 of the
+[LaBRADOR paper](https://eprint.iacr.org/2022/1341). Recursive slack applies to
+the `beta_prime` terms; it is unnecessary when the terminal witness is sent to
+the verifier and checked directly.
+
+### Proof size and security
+
+Each row reports component-wise medians over five successful matched seeds.
+Component medians need not sum to the median total. Sizes are exact contextual
+proof bytes. The minimum is taken over every SIS estimate reported during the
+five successful after-runs.
+
+| Degree | Total bytes, before/after | Fold bytes, before/after | Tail bytes, before/after | Aggregate JL bytes, before/after | Minimum quantum bits, before/after |
+|---:|---:|---:|---:|---:|---:|
+| `2^20` | 55,574 / 56,345 (`+1.39%`) | 39,312 / 39,317 | 16,265 / 16,946 | 2,946 / 2,953 | 130.910 / 128.260 |
+| `2^21` | 56,677 / 59,328 (`+4.68%`) | 39,596 / 43,066 | 17,051 / 16,257 | 2,972 / 3,349 | 128.525 / 128.260 |
+| `2^22` | 59,284 / 60,101 (`+1.38%`) | 43,096 / 43,107 | 16,178 / 16,996 | 3,383 / 3,390 | 129.055 / 128.525 |
+
+### Schedule changes
+
+| Degree | Top shape, before/after | Top rank `kappa/kappa1`, before/after | Pack members, before/after | Current proof-byte range |
+|---:|---:|---:|---:|---:|
+| `2^20` | `425x39 / 434x38` | `21/7 / 22/7` | `6 / 6–7` | 56,263–58,687 |
+| `2^21` | `614x54` | `22/8` | `6–7 / 7` | 59,258–59,356 |
+| `2^22` | `868x76 / 887x74` | `22/8 / 23/8` | `7` | 60,016–60,111 |
+
+The first branch of the LaBRADOR maximum dominated every honest fold in these
+runs. The source-dependent second branch therefore did not increase the
+reported honest schedules, but remains necessary for verifier soundness when a
+proof supplies a small target bound relative to the public source bound.
+
+One accepted `2^21` fold used grind nonce 1. Every other accepted root and fold
+in the reported samples used nonce 0.
+
+### Sampling record
+
+The matched table samples use seeds `tight-bound-<degree>-<index>` with indices
+`1,3,4,5,6` for `2^20` and `1,2,3,4,5` for `2^21` and `2^22`. Every selected
+sample passed final verification at both commits.
+
+Two extra current-branch samples completed proving but failed final
+verification and are excluded:
+
+- `tight-bound-20-2` failed at both commits. Base returned 125 for the
+  aggregated dot-product constraint; the current implementation returned 124
+  for an amortized inner-commitment opening.
+- `tight-bound-22-7` passed at the base commit but returned 125 for the
+  aggregated dot-product constraint at the current commit.
+
+These observations are retained as benchmark outcomes. This report does not
+diagnose their cause or treat them as successful samples.
+
+### Reproduce the tight-bound comparison
+
+Build the current portable test binary:
+
+```sh
+make BACKEND=portable test_greyhound
+```
+
+For example, run sample 1 at degree `2^22` with:
+
+```sh
+GREYHOUND_BENCH_SEED=tight-bound-22-1 \
+LABRADOR_SIS_SECURITY=l2-quantum128-adps16 \
+LATTICE_DOGS_THREADS=8 \
+GREYHOUND_BENCH_PACK_ONLY=1 \
+./test_greyhound 65536
+```
+
+The argument is the number of 64-coefficient polynomials, so 65,536 inputs
+represent `65536 * 64 = 2^22` scalar coefficients. The benchmark seed affects
+only the test harness; production APIs continue to obtain their initial seed
+from `randombytes`.
+
+## Historical sparse-ternary JL comparison at `687a6f8`
 
 Measured on 2026-09-01 on an exe.dev VM with two AMD EPYC 9554P vCPUs,
 8 GiB RAM, Ubuntu 24.04, GCC 13.3, and native AVX-512. Builds used
@@ -9,7 +126,7 @@ The comparison isolates the JL change:
 
 - **Before:** commit `0c72ba9`, using one dense sign matrix, projected-energy
   multiplier 256, and the historical `SLACK = 2`.
-- **After:** two independent sign planes realizing
+- **After:** commit `687a6f8`, using two independent sign planes realizing
   `A = (S1 + S2) / 2`, projected-energy multiplier 128, certified lower-tail
   multiplier 29, and `SLACK = sqrt(128/29)`.
 
@@ -19,7 +136,7 @@ compared. Paired runs use identical initial witnesses. Degrees `2^22` and
 `2^24` use three paired seeds; `2^26` uses four paired seeds because the first
 baseline seed exposed an inherited verification failure, recorded below.
 
-## Standalone JL scaling
+### Standalone JL scaling
 
 Here `n_v` counts scalar coefficients; one `poly` contains 64 coefficients.
 Each row is the median of three calls on the same witness and packed matrices.
@@ -50,7 +167,7 @@ Peak RSS in this synthetic test includes the witness, both matrices, and the
 full collapsed ring vector simultaneously. The protocol's stage-local memory
 profile is measured separately below.
 
-## Whole Greyhound Pack timing
+### Whole Greyhound Pack timing
 
 Values are medians over the paired successful seeds. `Commit` is shown because
 it is a useful control: JL is not used there, so it should remain essentially
@@ -78,7 +195,7 @@ original `n_v`-dimensional vector at every stage simultaneously.
 | `2^24` | 1,043.9 MiB | 1,107.4 MiB | 6.1% |
 | `2^26` | 4,623.1 MiB | 4,769.9 MiB | 3.2% |
 
-## Proof size and security parameters
+### Proof size and security parameters
 
 All sizes are exact contextual proof bytes. The table reports medians over the
 same paired successful seeds used for timing.
@@ -111,7 +228,7 @@ Every accepted SIS instance remains above the configured 128-bit quantum
 ADPS16 floor. The existing JL retry nonce remains only a deterministic candidate
 index. No nonce cap or extra security-bit adjustment is introduced.
 
-## Baseline failure retained in the record
+### Baseline failure retained in the record
 
 The first deterministic `2^26` baseline seed completed proving but failed the
 final verifier with `Aggregated dot-product constraint doesn't hold` (return
@@ -121,7 +238,7 @@ is not silently converted into a successful observation. This failure is in
 the inherited dense-sign baseline and is not evidence for or against the JL
 tail bound by itself.
 
-## Reproduction
+### Reproduce the historical JL comparison
 
 Build the native AVX-512 tests:
 
