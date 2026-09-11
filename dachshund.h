@@ -48,6 +48,7 @@ void free_smplstmnt(smplstmnt *st);
 #define free_commitment NAMESPACE(free_commitment)
 __attribute__((visibility("default")))
 void free_commitment(commitment *com);
+uint64_t simple_expanded_betasq(const smplstmnt *st);
 
 int simple_prove(statement *ost, witness *owt, proof *pi, commitment *com,
                   const smplstmnt *ist, const witness *iwt, int tail);

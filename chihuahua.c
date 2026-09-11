@@ -384,7 +384,7 @@ int principle_prove(statement *ost, witness *owt, proof *pi, const prncplstmnt *
   constraint cnst[1] = {};
   void *buf = NULL;
 
-  ret = init_proof(pi,iwt,ist->quadratic,tail);
+  ret = init_proof(pi,iwt,ist->betasq,ist->quadratic,tail);
   if(ret)  // commitments not secure (1/2)
     return ret;
   init_statement(ost,pi,ist->h);
@@ -413,7 +413,7 @@ int principle_prove(statement *ost, witness *owt, proof *pi, const prncplstmnt *
     free_constraint(cnst);
 
     aggregate_sparsecnst(ost,pi,ist->cnst,ist->k);
-    ret = amortize(ost,owt,pi,sx);
+    ret = amortize(ost,owt,pi,ist->betasq,sx);
     if(ret) {
       ret += 20;
       goto err;
@@ -461,7 +461,7 @@ int principle_reduce(statement *ost, const proof *pi, const prncplstmnt *ist) {
   jlmat1 = NULL;
 
   aggregate_sparsecnst(ost,pi,ist->cnst,ist->k);
-  ret = reduce_amortize(ost,pi);
+  ret = reduce_amortize(ost,pi,ist->betasq);
   if(ret) {  // commitments not secure (1/2)
     ret += 10;
     goto err;

@@ -19,6 +19,23 @@ int main(void) {
     { 11,250,1707129,522,2176,138.330 }
   };
 
+  if(fabs(greyhound_inner_commitment_l2_bound(2,7,123.0) -
+          8*T*(ldexp(1,7)+1)*SLACK*123.0) > 1e-9 ||
+     fabs(greyhound_inner_commitment_l2_bound(1,0,123.0) -
+          16*T*SLACK*123.0) > 1e-9) {
+    fprintf(stderr,"Greyhound inner commitment bound is not tight\n");
+    return 1;
+  }
+  if(fabs(labrador_inner_commitment_l2_bound(2,7,1000000.0,123.0,0) -
+          fmax(8*T*(ldexp(1,7)+1)*SLACK*123.0,
+               2*(ldexp(1,7)+1)*SLACK*123.0+4*T*SLACK*1000000.0)) > 1e-9 ||
+     fabs(labrador_inner_commitment_l2_bound(2,7,1000000.0,123.0,1) -
+          fmax(8*T*(ldexp(1,7)+1)*123.0,
+               2*(ldexp(1,7)+1)*123.0+4*T*SLACK*1000000.0)) > 1e-9) {
+    fprintf(stderr,"LaBRADOR inner commitment bound does not match Theorem 5.1\n");
+    return 1;
+  }
+
   sis_set_security_mode(SIS_SECURITY_INVALID);
   if(sis_secure(21,1700,499535789)) {
     fprintf(stderr,"invalid SIS security mode did not fail closed\n");

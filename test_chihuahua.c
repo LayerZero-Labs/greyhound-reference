@@ -107,7 +107,7 @@ static int test_twolayer() {
     goto end;
   }
   free_witness(&wt0);
-  size += print_proof_pp(&pi0);
+  size += print_proof_pp(&pi0,st0.betasq);
   ret = proof_wire_copy(&wirepi0,&pi0);
   if(ret) {
     fprintf(stderr,"ERROR: Chihuahua proof wire round-trip failed: %d\n",ret);
@@ -139,7 +139,7 @@ static int test_twolayer() {
     goto end;
   }
   free_witness(&wt1);
-  size += print_proof_pp(&pi1);
+  size += print_proof_pp(&pi1,st1.betasq);
   ret = proof_wire_copy(&wirepi1,&pi1);
   if(ret) {
     fprintf(stderr,"ERROR: Labrador proof wire round-trip failed: %d\n",ret);

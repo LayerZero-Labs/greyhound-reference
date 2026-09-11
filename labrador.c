@@ -189,18 +189,47 @@ int sis_secure(size_t rank, size_t width, double norm) {
   return root_hermite_factor(483) > target+1e-13;
 }
 
+double greyhound_inner_commitment_l2_bound(size_t parts, size_t log2_base,
+                                           double witness_l2) {
+  /* The proof of Greyhound, Lemma 2.11 gives the tight weak-binding
+   * factor 2*kappa_bar*beta_bar rather than the lemma statement's loose
+   * factor 4.  Substituting the protocol's doubled challenge/opening
+   * bounds and recursive JL slack gives 8*T*(B+1)*SLACK*beta'. */
+  double reconstruction_bound = ldexp(1,(parts-1)*log2_base);
+  return 8*T*(reconstruction_bound+1)*SLACK*witness_l2;
+}
+
+double labrador_inner_commitment_l2_bound(size_t parts, size_t log2_base,
+                                          double source_l2, double target_l2,
+                                          int tail) {
+  /* LaBRADOR, Theorem 5.1 requires
+   * max(8*T*(B+1)*beta', 2*(B+1)*beta' + 4*T*SLACK*beta).
+   * Remark 5.2 applies the recursive JL slack to beta' unless the target
+   * witness is sent directly by a tail proof. */
+  double reconstruction_bound = ldexp(1,(parts-1)*log2_base)+1;
+  double target_opening = reconstruction_bound*(tail ? 1 : SLACK)*target_l2;
+  double weak_opening = 8*T*target_opening;
+  double opening_difference = 2*target_opening+4*T*SLACK*source_l2;
+  return fmax(weak_opening,opening_difference);
+}
+
 static int inner_commitment_secure(size_t kappa, size_t width,
-                                   size_t f, size_t b, uint64_t normsq) {
+                                   size_t f, size_t b, uint64_t source_normsq,
+                                   uint64_t target_normsq, int tail) {
   return sis_secure(kappa,width,
-                    6*T*SLACK*ldexp(1,(f-1)*b)*sqrt((double)normsq));
+                    labrador_inner_commitment_l2_bound(
+                      f,b,sqrt((double)source_normsq),
+                      sqrt((double)target_normsq),tail));
 }
 
 static int amortized_commitments_secure(const comparams *cpp, size_t r,
-                                        size_t n, uint64_t normsq, int tail) {
+                                        size_t n, uint64_t source_normsq,
+                                        uint64_t target_normsq, int tail) {
   size_t tri = (r*r+r)/2;
-  double outer_norm = 2*SLACK*sqrt((double)normsq);
+  double outer_norm = 2*SLACK*sqrt((double)target_normsq);
 
-  if(!inner_commitment_secure(cpp->kappa,n,cpp->f,cpp->b,normsq))
+  if(!inner_commitment_secure(cpp->kappa,n,cpp->f,cpp->b,
+                              source_normsq,target_normsq,tail))
     return 0;
   return tail ||
          (sis_secure(cpp->kappa1,cpp->fu*r*cpp->kappa+cpp->fg*tri,outer_norm) &&
@@ -268,7 +297,8 @@ void free_comkey(void) {
   comkey_len = 0;
 }
 
-int init_proof(proof *pi, const witness *wt, int quadratic, int tail) {
+int init_proof(proof *pi, const witness *wt, uint64_t source_betasq,
+               int quadratic, int tail) {
   size_t i,j,k,t,u;
   size_t nn,rr;
   int ret,decompose;
@@ -336,8 +366,10 @@ int init_proof(proof *pi, const witness *wt, int quadratic, int tail) {
       varz += normsq[i];
     varz /= nn*N;
     varz *= TAU1+4*TAU2;
-    decompose = !tail && !sis_secure(13,nn,
-                                      6*T*SLACK*sqrt(2*(TAU1+4*TAU2)*varz*nn*N));
+    decompose = !tail && !sis_secure(
+      13,nn,labrador_inner_commitment_l2_bound(
+        1,0,sqrt((double)source_betasq),
+        sqrt(2*(TAU1+4*TAU2)*varz*nn*N),0));
     decompose = decompose || 64*varz > (1 << 28);
     if(decompose) {
       cpp->f = 2;
@@ -398,7 +430,8 @@ int init_proof(proof *pi, const witness *wt, int quadratic, int tail) {
       if(!tail && quadratic)
         pi->normsq += (ldexp(1,2*cpp->bg)/12*(cpp->fg-1) + varg/ldexp(1,2*(cpp->fg-1)*cpp->bg))*(rr*rr+rr)/2;
       pi->normsq *= N;
-      if(inner_commitment_secure(cpp->kappa,nn,cpp->f,cpp->b,pi->normsq))
+      if(inner_commitment_secure(cpp->kappa,nn,cpp->f,cpp->b,
+                                 source_betasq,pi->normsq,tail))
         break;
     }
 
@@ -645,7 +678,7 @@ void free_witness(witness *wt) {
   wt->n = NULL;
 }
 
-double print_proof_pp(const proof *pi) {
+double print_proof_pp(const proof *pi, uint64_t source_betasq) {
   size_t i,groups,row_width,outer1_width,outer2_width,tri;
   size_t wire_bytes,metadata_bytes,payload_bytes,accumulated;
   double s, projection_bits, modeled_bits,inner_norm,outer_norm;
@@ -670,7 +703,8 @@ double print_proof_pp(const proof *pi) {
   s = sqrt(jlproj_normsq(pi->p));
   projection_bits = (log2(s)-4+2.05)*256;
   modeled_bits = projection_bits+8.0*payload_bytes;
-  inner_norm = 6*T*SLACK*ldexp(1,(cpp->f-1)*cpp->b)*sqrt(pi->normsq);
+  inner_norm = labrador_inner_commitment_l2_bound(
+    cpp->f,cpp->b,sqrt((double)source_betasq),sqrt(pi->normsq),pi->tail);
   outer_norm = 2*SLACK*sqrt(pi->normsq);
 
   printf("Labrador fold proof parameters:\n");
@@ -1233,6 +1267,7 @@ static void fold_grind_seed(uint8_t out[16], const uint8_t h[16], uint32_t nonce
 }
 
 static int amortize_tail(statement *ost, witness *owt, proof *pi,
+                         uint64_t source_betasq,
                          polx sx[ost->r][ost->n]) {
   const size_t r = ost->r;
   const size_t n = ost->n;
@@ -1280,7 +1315,7 @@ static int amortize_tail(statement *ost, witness *owt, proof *pi,
       owt->normsq[i] = polyvec_sprodz(owt->s[i],owt->s[i],n);
       ost->betasq += owt->normsq[i];
     }
-    if(amortized_commitments_secure(cpp,r,n,ost->betasq,1))
+    if(amortized_commitments_secure(cpp,r,n,source_betasq,ost->betasq,1))
       break;
   }
 
@@ -1302,7 +1337,8 @@ static int amortize_tail(statement *ost, witness *owt, proof *pi,
   return 0;
 }
 
-int amortize(statement *ost, witness *owt, proof *pi, polx sx[ost->r][ost->n]) {
+int amortize(statement *ost, witness *owt, proof *pi,
+             uint64_t source_betasq, polx sx[ost->r][ost->n]) {
   const size_t r = ost->r;
   const size_t n = ost->n;
   const size_t m = ost->m;
@@ -1313,7 +1349,7 @@ int amortize(statement *ost, witness *owt, proof *pi, polx sx[ost->r][ost->n]) {
   const size_t h = g + cpp->fg*(r*r+r)/2;
 
   if(pi->tail) {
-    return amortize_tail(ost,owt,pi,sx);
+    return amortize_tail(ost,owt,pi,source_betasq,sx);
   }
 
   size_t i,j,k,l;
@@ -1367,7 +1403,7 @@ int amortize(statement *ost, witness *owt, proof *pi, polx sx[ost->r][ost->n]) {
       owt->normsq[i] = polyvec_sprodz(owt->s[i],owt->s[i],n);
       ost->betasq += owt->normsq[i];
     }
-    if(amortized_commitments_secure(cpp,r,n,ost->betasq,0))
+    if(amortized_commitments_secure(cpp,r,n,source_betasq,ost->betasq,0))
       break;
   }
 
@@ -1390,7 +1426,7 @@ int amortize(statement *ost, witness *owt, proof *pi, polx sx[ost->r][ost->n]) {
   return 0;
 }
 
-int reduce_amortize(statement *ost, const proof *pi) {
+int reduce_amortize(statement *ost, const proof *pi, uint64_t source_betasq) {
   const size_t r = ost->r;
   const size_t n = ost->n;
   const comparams *cpp = ost->cpp;
@@ -1399,7 +1435,8 @@ int reduce_amortize(statement *ost, const proof *pi) {
   polx (*phi)[n] = (polx(*)[n])ost->cnst->phi;
 
   ost->betasq = pi->normsq;
-  if(!amortized_commitments_secure(cpp,ost->r,ost->n,ost->betasq,pi->tail)) {
+  if(!amortized_commitments_secure(cpp,ost->r,ost->n,
+                                   source_betasq,ost->betasq,pi->tail)) {
     fprintf(stderr,"ERROR in reduce_amortize(): Commitments not secure\n");
     return 1;
   }
@@ -1446,7 +1483,7 @@ int prove(statement *ost, witness *owt, proof *pi, const statement *ist, const w
   constraint cnst[1] = {};
   void *buf = NULL;
 
-  ret = init_proof(pi,iwt,ist->cpp->fg != 0,tail);
+  ret = init_proof(pi,iwt,ist->betasq,ist->cpp->fg != 0,tail);
   if(ret) // commitments not secure (1/2)
     return ret;
   init_statement(ost,pi,ist->h);
@@ -1474,7 +1511,7 @@ int prove(statement *ost, witness *owt, proof *pi, const statement *ist, const w
     free_constraint(cnst);
 
     aggregate(ost,pi,ist);
-    ret = amortize(ost,owt,pi,sx);
+    ret = amortize(ost,owt,pi,ist->betasq,sx);
     if(ret) {
       ret += 30;
       goto err;
@@ -1521,7 +1558,7 @@ int reduce(statement *ost, const proof *pi, const statement *ist) {
   jlmat1 = NULL;
 
   aggregate(ost,pi,ist);
-  ret = reduce_amortize(ost,pi);
+  ret = reduce_amortize(ost,pi,ist->betasq);
   if(ret) {  // commitments not secure (1/2)
     ret += 10;
     goto err;
