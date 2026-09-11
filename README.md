@@ -48,9 +48,10 @@ security proof or implementation audit.
 The current implementation was measured locally on an Apple M4 Max with the
 portable backend, eight worker threads, and the `l2-quantum128-adps16` policy.
 The completed rows compare five successful, matched deterministic runs at base
-commit `687a6f8` with the tight-bound implementation at `4f419a9`. Sizes are
-exact contextual proof bytes. Minimum-security values cover only the SIS
-instances included in accepted proof members.
+commit `687a6f8` with the corrected implementation at `8bb47a4`. The `2^27`
+and `2^28` rows are five-run current-only measurements. Sizes are exact
+contextual proof bytes. Minimum-security values cover only the SIS instances
+included in accepted proof members.
 
 | Degree | Median proof bytes, base -> current | Change | Top shape and rank `kappa/kappa1`, base -> current | Current minimum quantum bits |
 |---:|---:|---:|---:|---:|
@@ -58,20 +59,22 @@ instances included in accepted proof members.
 | `2^21` | 56,677 -> 59,328 | +4.68% | `614x54 22/8` | 128.260 |
 | `2^22` | 59,284 -> 60,101 | +1.38% | `868x76 22/8 -> 887x74 23/8` | 129.320 |
 | `2^23` | 58,974 -> 60,413 | +2.44% | `1254x105 23/8` | 130.645 |
-| `2^24` | 59,543 -> 60,453 | +1.53% | `1774x148 23/9 -> 1736x152 22/8` | 128.525 |
-| `2^25` | 60,920 -> no completed proof in 20 minutes | — | `2560x205 24/9 -> 2455x214 22/9` | — |
-| `2^26` | 62,419 -> 63,063 | +1.03% | `3620x290 24/9 -> 4160x253 32/9` | 128.260 |
+| `2^24` | 59,543 -> 60,494 | +1.60% | `1774x148 23/9 -> 1810x145 24/8` | 130.910 |
+| `2^25` | 60,920 -> 64,052 | +5.14% | `2560x205 24/9 -> 2455x214 22/9` | 128.260 |
+| `2^26` | 62,419 -> 65,527 | +4.98% | `3620x290 24/9` | 129.320 |
+| `2^27` | — -> 64,800 | — | `— -> 7241x290 49/9` | 128.260 |
+| `2^28` | — -> 63,007 | — | `— -> 7241x580 24/9` | 129.320 |
 
-At `2^25`, five fixed-head seeds each remained CPU-bound in the root
-folded-response computation for at least 20 minutes without producing an
-accepted root proof. Successful base measurements completed in seconds after
-replacing one failed seed. No current proof size or security value is reported
-for that degree. The source-dependent branch of the LaBRADOR maximum did not
-dominate any completed honest fold. One accepted `2^21` fold used grind nonce
-1; all other accepted current folds used
-nonce 0. See [BENCHMARKS.md](BENCHMARKS.md) for component medians, proof-byte
-ranges, the full sampling and failure record, reproduction commands, and the
-historical sparse-ternary JL comparison at `687a6f8`.
+The earlier `2^25` stall came from a folded-witness second-moment estimate
+that treated the top source digit as if it had the ordinary radix width. For
+five base-64 digits modulo a 32-bit modulus, the top digit is eight bits, not
+six. Accounting for its actual variance changes the selected source
+decomposition to six base-32 digits. Across the reported `2^25` runs, the
+median predicted and realized root norms are 58,426.87 and 60,311.60; every
+accepted root uses grind nonce 0. See [BENCHMARKS.md](BENCHMARKS.md) for the
+derivation, component medians, proof-byte ranges, complete sampling and
+failure record, reproduction commands, and the historical sparse-ternary JL
+comparison at `687a6f8`.
 
 ## What this fork adds
 
@@ -215,6 +218,13 @@ challenge, and `z` chain. Search is deterministic from nonce zero and capped at
 4096 attempts per level. Reports include the scalar SIS dimensions, Euclidean
 collision bound, optimized lattice dimension, block size `beta`, and estimated
 quantum cost. Unknown nonempty policy names fail closed.
+
+The Greyhound root schedule uses a second-moment estimate for its folded
+witness. That estimate averages the variances of all source-decomposition
+digits, including the possibly narrower or wider top digit, and the ADPS16
+policy applies 25% L2 headroom before selecting ranks. The prover and verifier
+still test the realized norm; grinding is not used as a substitute for pricing
+a systematic variance term.
 
 This is a concrete parameter-estimation policy, not a claim that the full
 protocol or implementation has received a security audit. Run its regression
