@@ -429,6 +429,18 @@ static void simple_aggregate(statement *ost, const proof *pi, const commitment *
   }
 }
 
+uint64_t simple_expanded_betasq(const smplstmnt *st) {
+  size_t i;
+  uint64_t betasq = 0;
+
+  for(i=0;i<st->r;i++) {
+    betasq += st->betasq[i];
+    if(st->betasq[i])
+      betasq += LOGQ-1;
+  }
+  return betasq;
+}
+
 int simple_prove(statement *ost, witness *owt, proof *pi, commitment *com,
                   const smplstmnt *ist, const witness *iwt, int tail)
 {
@@ -441,7 +453,8 @@ int simple_prove(statement *ost, witness *owt, proof *pi, commitment *com,
   ret = expand_witness(ewt,ist,iwt);
   if(ret)
     return ret;  // norm too big for shortness proofs (1/2)
-  ret = init_proof(pi,ewt,2,tail);
+  uint64_t source_betasq = simple_expanded_betasq(ist);
+  ret = init_proof(pi,ewt,source_betasq,2,tail);
   if(ret) {  // commitments not secure (1/2)
     ret += 10;
     goto err;
@@ -481,7 +494,7 @@ int simple_prove(statement *ost, witness *owt, proof *pi, commitment *com,
 
     simple_aggregate(ost,pi,com,ist);
     aggregate_sparsecnst(ost,pi,ist->cnst,ist->k);
-    ret = amortize(ost,owt,pi,sx);
+    ret = amortize(ost,owt,pi,source_betasq,sx);
     if(ret) {
       ret += 30;
       goto err;
@@ -511,17 +524,11 @@ err:
 int simple_reduce(statement *ost, const proof *pi, const commitment *com, const smplstmnt *ist) {
   size_t i;
   int ret;
-  uint64_t betasq = 0;
+  uint64_t betasq = simple_expanded_betasq(ist);
   uint8_t *jlmat1 = NULL, *jlmat2;
   constraint cnst[1] = {};
 
   init_statement(ost,pi,ist->h);
-  for(i=0;i<ist->r;i++) {
-    betasq += ist->betasq[i];
-    if(ist->betasq[i])
-      betasq += LOGQ-1;
-  }
-
   const size_t s1 = pi->nu[ist->r];
   const size_t jlbytes = s1*ost->n*JL_MATRIX_POLY_BYTES;
   jlmat1 = _aligned_alloc(64,2*jlbytes);
@@ -545,7 +552,7 @@ int simple_reduce(statement *ost, const proof *pi, const commitment *com, const 
 
   simple_aggregate(ost,pi,com,ist);
   aggregate_sparsecnst(ost,pi,ist->cnst,ist->k);
-  ret = reduce_amortize(ost,pi);
+  ret = reduce_amortize(ost,pi,betasq);
   if(ret) {  // commitments not secure (1/2)
     ret += 10;
     goto err;

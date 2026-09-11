@@ -90,7 +90,7 @@ static int test_twolayer() {
 
   simple_prove(&st1,&wt1,&pi0,&com,&st0,&wt0,0);
   free_witness(&wt0);
-  size += print_proof_pp(&pi0);
+  size += print_proof_pp(&pi0,simple_expanded_betasq(&st0));
   print_statement_pp(&st1);
   ret = verify(&st1,&wt1);
   if(ret) {
@@ -113,7 +113,7 @@ static int test_twolayer() {
 
   prove(&st2,&wt2,&pi1,&st1,&wt1,0);
   free_witness(&wt1);
-  size += print_proof_pp(&pi1);
+  size += print_proof_pp(&pi1,st1.betasq);
   print_statement_pp(&st2);
   ret = verify(&st2,&wt2);
   if(ret) {

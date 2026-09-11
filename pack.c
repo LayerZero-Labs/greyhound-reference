@@ -47,7 +47,7 @@ static int composite_prove(composite *p, statement *tst, witness *twt, double *t
     ret = prove(&tst[i^1],&twt[i^1],p->pi[p->l],&tst[i],&twt[i],0);
     if(ret) return ret;
     printf("Labrador fold %zu candidate:\n\n",p->l+1);
-    pisize = print_proof_pp(p->pi[p->l]);
+    pisize = print_proof_pp(p->pi[p->l],tst[i].betasq);
     print_statement_pp(&tst[i^1]);
     twtsize[i^1] = print_witness_pp(&twt[i^1]);
     if(pisize + twtsize[i^1] >= twtsize[i]) {
@@ -73,7 +73,7 @@ static int composite_prove(composite *p, statement *tst, witness *twt, double *t
     ret = prove(&tst[i^1],&twt[i^1],p->pi[p->l],&tst[i],&twt[i],1);
     if(ret) return ret;
     printf("Labrador fold %zu tail candidate:\n\n",p->l+1);
-    pisize = print_proof_pp(p->pi[p->l]);
+    pisize = print_proof_pp(p->pi[p->l],tst[i].betasq);
     print_statement_pp(&tst[i^1]);
     twtsize[i^1] = print_witness_pp(&twt[i^1]);
     if(pisize + twtsize[i^1] >= twtsize[i]) {
@@ -118,7 +118,7 @@ int composite_prove_principle(composite *p, const prncplstmnt *st, const witness
   if(ret)
     goto err;
   printf("Labrador fold 1 candidate:\n\n");
-  p->size = print_proof_pp(p->pi[p->l]);
+  p->size = print_proof_pp(p->pi[p->l],st->betasq);
   print_statement_pp(tst);
   twtsize[0] = print_witness_pp(twt);
   printf("Labrador fold 1 accepted as initial reduction\n\n");
@@ -164,7 +164,7 @@ int composite_prove_simple(composite *p, commitment *com, const smplstmnt *st, c
   if(ret)
     goto err;
   printf("Labrador fold 1 candidate:\n\n");
-  p->size = print_proof_pp(p->pi[p->l]);
+  p->size = print_proof_pp(p->pi[p->l],simple_expanded_betasq(st));
   print_statement_pp(tst);
   twtsize[0] = print_witness_pp(twt);
   printf("Labrador fold 1 accepted as initial reduction\n\n");
@@ -225,7 +225,7 @@ int composite_prove_polcom(composite *p, polcomprf *ppi, polcomctx *ctx, uint32_
     goto err;
   }
   printf("Labrador fold 1 candidate:\n\n");
-  p->size += print_proof_pp(p->pi[p->l]);
+  p->size += print_proof_pp(p->pi[p->l],tst0->betasq);
   print_statement_pp(tst);
   twtsize[0] = print_witness_pp(twt);
   printf("Labrador fold 1 accepted as initial reduction\n\n");

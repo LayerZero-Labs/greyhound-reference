@@ -91,6 +91,11 @@ const char *sis_security_mode_name(void);
 sis_estimate sis_estimate_l2_core_svp_adps16(size_t rank, size_t width,
                                              double l2_bound);
 int sis_secure(size_t rank, size_t width, double l2_bound);
+double greyhound_inner_commitment_l2_bound(size_t parts, size_t log2_base,
+                                           double witness_l2);
+double labrador_inner_commitment_l2_bound(size_t parts, size_t log2_base,
+                                          double source_l2, double target_l2,
+                                          int tail);
 void print_sis_audit_pp(const char *role, size_t rank, size_t width, double l2_bound);
 #define init_comkey NAMESPACE(init_comkey)
 __attribute__((visibility("default")))
@@ -99,7 +104,8 @@ void init_comkey(size_t n);
 __attribute__((visibility("default")))
 void free_comkey(void);
 
-int init_proof(proof *pi, const witness *wt, int quadratic, int tail);
+int init_proof(proof *pi, const witness *wt, uint64_t source_betasq,
+               int quadratic, int tail);
 void init_constraint_raw(constraint *cnst, size_t r, size_t n, size_t deg, int quadratic);
 void init_constraint(constraint *cnst, const statement *st);
 void init_statement(statement *st, const proof *pi, const uint8_t h[16]);
@@ -119,7 +125,7 @@ void free_statement(statement *st);
 __attribute__((visibility("default")))
 void free_witness(witness *wt);
 
-double print_proof_pp(const proof *pi);
+double print_proof_pp(const proof *pi, uint64_t source_betasq);
 void print_statement_pp(const statement *pi);
 double print_witness_pp(const witness *wt);
 
@@ -170,8 +176,9 @@ void collaps_jlproj(constraint *cnst, statement *st, const proof *pi,
 void lift_aggregate_zqcnst(statement *ost, proof *pi, size_t i, constraint *cnst, const polx sx[ost->r][ost->n]);
 void reduce_lift_aggregate_zqcnst(statement *ost, const proof *pi, size_t i, const constraint *cnst);
 
-int amortize(statement *ost, witness *owt, proof *pi, polx sx[ost->r][ost->n]);
-int reduce_amortize(statement *ost, const proof *pi);
+int amortize(statement *ost, witness *owt, proof *pi,
+             uint64_t source_betasq, polx sx[ost->r][ost->n]);
+int reduce_amortize(statement *ost, const proof *pi, uint64_t source_betasq);
 
 int prove(statement *ost, witness *owt, proof *pi, const statement *ist, const witness *iwt, int tail);
 int reduce(statement *ost, const proof *pi, const statement *ist);

@@ -31,9 +31,12 @@ static int init_polcomctx(polcomctx *ctx, size_t len) {
       ctx->m = round(sqrt(len*(cpp->kappa+1)/2.0));
       ctx->n = ceil((double)len/ctx->m);
 
-      varz = exp2(2*cpp->b)/12*ctx->n*(TAU1+4*TAU2);
+      /* The top source digit has LOGQ-(f-1)*b bits, which need not equal b.
+       * Average all f digit variances when predicting the folded witness. */
+      varz = (exp2(2*cpp->b)*(cpp->f - 1) +
+              exp2(2*(LOGQ - (cpp->f - 1)*cpp->b)))/(12*cpp->f);
+      varz *= ctx->n*(TAU1+4*TAU2);
       cpp->bu = round(0.25*log2(12*varz));  // z (decomposed)
-      //cpp->bu = round(0.5*cpp->b + 0.25*log2(ctx->n) + 0.25*log2(TAU1+4*TAU2)));
       cpp->fu = round((double)LOGQ/cpp->bu);
 
       ctx->normsq  = (exp2(2*cpp->bu)/12 + varz/exp2(2*cpp->bu))*ctx->m*cpp->f;
@@ -49,7 +52,7 @@ static int init_polcomctx(polcomctx *ctx, size_t len) {
         schedule_norm *= 1.25;
 
       if(sis_secure(cpp->kappa,ctx->m*cpp->f,
-                    6*T*SLACK*exp2(cpp->bu)*schedule_norm))
+                    greyhound_inner_commitment_l2_bound(2,cpp->bu,schedule_norm)))
         break;
     }
     for(cpp->kappa1=1;cpp->kappa1<=SIS_MAX_RANK;cpp->kappa1++)
@@ -143,7 +146,7 @@ double print_polcomprf_pp(const polcomprf *pi) {
   printf("  Folding challenge grind:\n");
   printf("    Accepted nonce: %u (candidate %u of at most %u)\n",
          pi->foldnonce,pi->foldnonce+1,FOLD_GRIND_MAX_ATTEMPTS);
-  inner_norm = 6*T*SLACK*exp2(cpp->bu)*sqrt(pi->normsq);
+  inner_norm = greyhound_inner_commitment_l2_bound(2,cpp->bu,sqrt(pi->normsq));
   outer_norm = 2*SLACK*sqrt(pi->normsq);
   printf("  SIS audit instances (actual post-evaluation norm):\n");
   print_sis_audit_pp("greyhound-inner",cpp->kappa,pi->m*cpp->f,inner_norm);
@@ -339,7 +342,8 @@ int64_t polzvec_eval(const polz *a, size_t len, int64_t x) {
 
 static int polcom_commitments_secure(const polcomprf *pi) {
   const comparams *cpp = pi->cpp;
-  double inner_norm = 6*T*SLACK*exp2(cpp->bu)*sqrt((double)pi->normsq);
+  double inner_norm = greyhound_inner_commitment_l2_bound(
+    2,cpp->bu,sqrt((double)pi->normsq));
   double outer_norm = 2*SLACK*sqrt((double)pi->normsq);
 
   return sis_secure(cpp->kappa,pi->m*cpp->f,inner_norm) &&
