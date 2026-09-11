@@ -47,16 +47,22 @@ the verifier and checked directly.
 
 ### Proof size and security
 
-Each row reports component-wise medians over five successful matched seeds.
-Component medians need not sum to the median total. Sizes are exact contextual
-proof bytes. The minimum is taken over every SIS estimate reported during the
-five successful after-runs.
+Completed rows report component-wise medians over five successful matched
+seeds. Component medians need not sum to the median total. Sizes are exact
+contextual proof bytes. Aggregate JL bytes count only coordinates serialized in
+accepted proof members; candidates rejected by the greedy size optimizer are
+excluded. The security value is the minimum over the SIS instances in those
+accepted proof members.
 
 | Degree | Total bytes, before/after | Fold bytes, before/after | Tail bytes, before/after | Aggregate JL bytes, before/after | Minimum quantum bits, before/after |
 |---:|---:|---:|---:|---:|---:|
-| `2^20` | 55,574 / 56,345 (`+1.39%`) | 39,312 / 39,317 | 16,265 / 16,946 | 2,946 / 2,953 | 130.910 / 128.260 |
-| `2^21` | 56,677 / 59,328 (`+4.68%`) | 39,596 / 43,066 | 17,051 / 16,257 | 2,972 / 3,349 | 128.525 / 128.260 |
-| `2^22` | 59,284 / 60,101 (`+1.38%`) | 43,096 / 43,107 | 16,178 / 16,996 | 3,383 / 3,390 | 129.055 / 128.525 |
+| `2^20` | 55,574 / 56,345 (`+1.39%`) | 39,312 / 39,317 | 16,265 / 16,946 | 2,566 / 2,571 | 130.910 / 128.260 |
+| `2^21` | 56,677 / 59,328 (`+4.68%`) | 39,596 / 43,066 | 17,051 / 16,257 | 2,594 / 2,971 | 128.525 / 128.260 |
+| `2^22` | 59,284 / 60,101 (`+1.38%`) | 43,096 / 43,107 | 16,178 / 16,996 | 3,001 / 3,012 | 129.055 / 129.320 |
+| `2^23` | 58,974 / 60,413 (`+2.44%`) | 43,125 / 43,642 | 15,897 / 16,779 | 3,030 / 3,035 | 128.260 / 130.645 |
+| `2^24` | 59,543 / 60,453 (`+1.53%`) | 43,910 / 43,671 | 15,642 / 16,782 | 3,053 / 3,064 | 128.260 / 128.525 |
+| `2^25` | 60,920 / — | 44,466 / — | 16,458 / — | 3,091 / — | 128.525 / — |
+| `2^26` | 62,419 / 63,063 (`+1.03%`) | 45,005 / 45,027 | 17,362 / 17,981 | 3,118 / 3,140 | 131.970 / 128.260 |
 
 ### Schedule changes
 
@@ -65,29 +71,68 @@ five successful after-runs.
 | `2^20` | `425x39 / 434x38` | `21/7 / 22/7` | `6 / 6–7` | 56,263–58,687 |
 | `2^21` | `614x54` | `22/8` | `6–7 / 7` | 59,258–59,356 |
 | `2^22` | `868x76 / 887x74` | `22/8 / 23/8` | `7` | 60,016–60,111 |
+| `2^23` | `1254x105` | `23/8` | `6–7 / 7` | 60,345–60,488 |
+| `2^24` | `1774x148 / 1736x152` | `23/9 / 22/8` | `7` | 60,407–60,500 |
+| `2^25` | `2560x205 / 2455x214` (attempted) | `24/9 / 22/9` | `7 / —` | — |
+| `2^26` | `3620x290 / 4160x253` | `24/9 / 32/9` | `7–8` | 62,938–65,028 |
 
-The first branch of the LaBRADOR maximum dominated every honest fold in these
-runs. The source-dependent second branch therefore did not increase the
-reported honest schedules, but remains necessary for verifier soundness when a
+The first branch of the LaBRADOR maximum dominated every completed honest fold
+in these runs. The source-dependent second branch therefore did not increase
+the completed schedules, but remains necessary for verifier soundness when a
 proof supplies a small target bound relative to the public source bound.
 
 One accepted `2^21` fold used grind nonce 1. Every other accepted root and fold
 in the reported samples used nonce 0.
 
-### Sampling record
+### The `2^25` bounded-run outcome
 
-The matched table samples use seeds `tight-bound-<degree>-<index>` with indices
-`1,3,4,5,6` for `2^20` and `1,2,3,4,5` for `2^21` and `2^22`. Every selected
-sample passed final verification at both commits.
+The fixed implementation selected top shape `2455x214`, decomposition bases
+64/64, expansion factors 5/5, ranks `22/9`, and a predicted witness norm of
+about 57,578. Five seeds (`tight-bound-25-1` through `tight-bound-25-5`) each
+remained CPU-bound in the root folded-response computation for at least 20
+minutes without producing an accepted root proof. The processes were then
+terminated. A sampled stack placed execution in `polcom_eval`'s
+`polxvec_polx_mul_add` call, which computes the response tested by the root
+grinding predicate. Because the accepted nonce is printed only after that
+computation succeeds, these runs do not distinguish one exceptionally costly
+candidate from many retries.
 
-Two extra current-branch samples completed proving but failed final
-verification and are excluded:
+At the base commit, the corresponding top schedule is `2560x205`, ranks
+`24/9`. Successful base proofs complete in seconds. The base medians in the
+table use seeds 1, 3, 4, 5, and 6 because seed 2 completed proving but failed
+final verification. An exploratory fixed-head seed 6 was also terminated
+without a root proof after 16 minutes.
+
+This is a benchmark result, not a proof-size estimate. No fixed-head proof
+bytes or accepted-instance security value are reported for `2^25`.
+
+### Sampling and failure record
+
+Seeds have the form `tight-bound-<degree>-<index>`. The five successful matched
+pairs used for each completed row are:
+
+| Degree | Included indices |
+|---:|---|
+| `2^20` | 1, 3, 4, 5, 6 |
+| `2^21` | 1, 2, 3, 4, 5 |
+| `2^22` | 1, 2, 3, 4, 5 |
+| `2^23` | 1, 2, 3, 4, 5 |
+| `2^24` | 1, 2, 3, 5, 6 |
+| `2^26` | 1, 2, 4, 5, 6 |
+
+The following completed proofs failed final verification and are excluded:
 
 - `tight-bound-20-2` failed at both commits. Base returned 125 for the
   aggregated dot-product constraint; the current implementation returned 124
   for an amortized inner-commitment opening.
 - `tight-bound-22-7` passed at the base commit but returned 125 for the
   aggregated dot-product constraint at the current commit.
+- `tight-bound-24-4` returned 124 for an amortized inner-commitment opening at
+  the base commit and passed at the current commit.
+- `tight-bound-25-2` returned 124 for an amortized inner-commitment opening at
+  the base commit; its current run did not complete within 20 minutes.
+- `tight-bound-26-3` passed at the base commit but returned 124 for an
+  amortized inner-commitment opening at the current commit.
 
 These observations are retained as benchmark outcomes. This report does not
 diagnose their cause or treat them as successful samples.
@@ -100,18 +145,18 @@ Build the current portable test binary:
 make BACKEND=portable test_greyhound
 ```
 
-For example, run sample 1 at degree `2^22` with:
+For example, run sample 1 at degree `2^26` with:
 
 ```sh
-GREYHOUND_BENCH_SEED=tight-bound-22-1 \
+GREYHOUND_BENCH_SEED=tight-bound-26-1 \
 LABRADOR_SIS_SECURITY=l2-quantum128-adps16 \
 LATTICE_DOGS_THREADS=8 \
 GREYHOUND_BENCH_PACK_ONLY=1 \
-./test_greyhound 65536
+./test_greyhound 1048576
 ```
 
-The argument is the number of 64-coefficient polynomials, so 65,536 inputs
-represent `65536 * 64 = 2^22` scalar coefficients. The benchmark seed affects
+The argument is the number of 64-coefficient polynomials, so 1,048,576 inputs
+represent `1048576 * 64 = 2^26` scalar coefficients. The benchmark seed affects
 only the test harness; production APIs continue to obtain their initial seed
 from `randombytes`.
 

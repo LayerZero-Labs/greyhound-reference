@@ -47,22 +47,31 @@ security proof or implementation audit.
 
 The current implementation was measured locally on an Apple M4 Max with the
 portable backend, eight worker threads, and the `l2-quantum128-adps16` policy.
-Each row compares five successful, matched deterministic runs at base commit
-`687a6f8` with the tight-bound implementation at `4f419a9`. Sizes are exact
-contextual proof bytes; ranges and minimum-security values describe the current
-implementation.
+The completed rows compare five successful, matched deterministic runs at base
+commit `687a6f8` with the tight-bound implementation at `4f419a9`. Sizes are
+exact contextual proof bytes. Minimum-security values cover only the SIS
+instances included in accepted proof members.
 
-| Degree | Median proof bytes, base -> current | Current range | Top shape, base -> current | Top rank `kappa/kappa1`, base -> current | Pack members, base -> current | Minimum quantum bits |
-|---:|---:|---:|---:|---:|---:|---:|
-| `2^20` | 55,574 -> 56,345 (+1.39%) | 56,263–58,687 | `425x39 -> 434x38` | `21/7 -> 22/7` | `6 -> 6–7` | 128.260 |
-| `2^21` | 56,677 -> 59,328 (+4.68%) | 59,258–59,356 | `614x54` | `22/8` | `6–7 -> 7` | 128.260 |
-| `2^22` | 59,284 -> 60,101 (+1.38%) | 60,016–60,111 | `868x76 -> 887x74` | `22/8 -> 23/8` | `7` | 128.525 |
+| Degree | Median proof bytes, base -> current | Change | Top shape and rank `kappa/kappa1`, base -> current | Current minimum quantum bits |
+|---:|---:|---:|---:|---:|
+| `2^20` | 55,574 -> 56,345 | +1.39% | `425x39 21/7 -> 434x38 22/7` | 128.260 |
+| `2^21` | 56,677 -> 59,328 | +4.68% | `614x54 22/8` | 128.260 |
+| `2^22` | 59,284 -> 60,101 | +1.38% | `868x76 22/8 -> 887x74 23/8` | 129.320 |
+| `2^23` | 58,974 -> 60,413 | +2.44% | `1254x105 23/8` | 130.645 |
+| `2^24` | 59,543 -> 60,453 | +1.53% | `1774x148 23/9 -> 1736x152 22/8` | 128.525 |
+| `2^25` | 60,920 -> no completed proof in 20 minutes | — | `2560x205 24/9 -> 2455x214 22/9` | — |
+| `2^26` | 62,419 -> 63,063 | +1.03% | `3620x290 24/9 -> 4160x253 32/9` | 128.260 |
 
-The source-dependent branch of the LaBRADOR maximum did not dominate any
-honest fold in these runs. One accepted `2^21` fold used grind nonce 1; all
-other accepted folds used nonce 0. See [BENCHMARKS.md](BENCHMARKS.md) for the
-complete bound formulas, component medians, sampling record, reproduction
-commands, and the historical sparse-ternary JL comparison at `687a6f8`.
+At `2^25`, five fixed-head seeds each remained CPU-bound in the root
+folded-response computation for at least 20 minutes without producing an
+accepted root proof. Successful base measurements completed in seconds after
+replacing one failed seed. No current proof size or security value is reported
+for that degree. The source-dependent branch of the LaBRADOR maximum did not
+dominate any completed honest fold. One accepted `2^21` fold used grind nonce
+1; all other accepted current folds used
+nonce 0. See [BENCHMARKS.md](BENCHMARKS.md) for component medians, proof-byte
+ranges, the full sampling and failure record, reproduction commands, and the
+historical sparse-ternary JL comparison at `687a6f8`.
 
 ## What this fork adds
 
