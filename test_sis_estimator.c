@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "labrador.h"
+#include "greyhound.h"
 
 typedef struct {
   size_t rank;
@@ -13,6 +14,7 @@ typedef struct {
 
 int main(void) {
   size_t i,j,k;
+  const double q = ldexp(1,LOGQ)-QOFF;
   const test_vector vectors[] = {
     { 21,1700,499535789,507,2976,134.355 },
     { 14,592,16228284,486,2394,128.790 },
@@ -54,7 +56,36 @@ int main(void) {
       return 2;
     }
   }
-  if(sis_secure(1,1,ldexp(1,31)) || sis_secure(0,1,1)) {
+  {
+    /* This is the corrected 2^30-coefficient f=8, kappa=24 inner bound. */
+    const double bound = 2568883812.0;
+    sis_estimate estimate = sis_estimate_l2_core_svp_adps16(24,115856,bound);
+    if(bound <= (q-1)/2 || bound >= q || !estimate.valid ||
+       estimate.trivially_easy || !estimate.finite || estimate.beta != 491 ||
+       estimate.lattice_dimension != 3144 ||
+       fabs(estimate.quantum_bits-130.115) > 1e-9 ||
+       !sis_secure(24,115856,bound)) {
+      fprintf(stderr,"Euclidean SIS bound between q/2 and q was rejected\n");
+      return 3;
+    }
+  }
+  {
+    sis_estimate estimate = sis_estimate_l2_core_svp_adps16(
+      24,115856,nextafter(q,0));
+    if(!estimate.valid || estimate.trivially_easy) {
+      fprintf(stderr,"Euclidean SIS bound immediately below q was trivial\n");
+      return 3;
+    }
+  }
+  {
+    sis_estimate estimate = sis_estimate_l2_core_svp_adps16(24,115856,q);
+    if(!estimate.valid || !estimate.finite || !estimate.trivially_easy ||
+       sis_secure(24,115856,q)) {
+      fprintf(stderr,"Euclidean SIS bound at q was not rejected as trivial\n");
+      return 3;
+    }
+  }
+  if(sis_secure(0,1,1)) {
     fprintf(stderr,"SIS estimator accepted invalid/trivially-easy input\n");
     return 3;
   }
@@ -79,6 +110,26 @@ int main(void) {
             return 5;
           }
         }
+  }
+  {
+    polcomctx ctx = {};
+
+    /* Inputs are vectors of 64-coefficient polynomials. */
+    if(greyhound_test_schedule(&ctx,(size_t)1 << 23) || ctx.cpp->f != 7 ||
+       ctx.cpp->b != 5 || ctx.cpp->kappa != 24 || ctx.m != 10240 ||
+       ctx.n != 820 || ctx.cpp->bu != 6 || ctx.cpp->fu != 5 ||
+       ctx.cpp->kappa1 != 10) {
+      fprintf(stderr,"Greyhound 2^29-coefficient schedule regression\n");
+      return 6;
+    }
+    ctx = (polcomctx){};
+    if(greyhound_test_schedule(&ctx,(size_t)1 << 24) || ctx.cpp->f != 7 ||
+       ctx.cpp->b != 5 || ctx.cpp->kappa != 25 || ctx.m != 14768 ||
+       ctx.n != 1137 || ctx.cpp->bu != 6 || ctx.cpp->fu != 5 ||
+       ctx.cpp->kappa1 != 10) {
+      fprintf(stderr,"Greyhound 2^30-coefficient schedule regression\n");
+      return 6;
+    }
   }
   puts("SIS ADPS16 L2 security tests passed");
   return 0;

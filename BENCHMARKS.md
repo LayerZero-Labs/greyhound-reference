@@ -2,7 +2,7 @@
 
 This document separates two experiments:
 
-1. a current comparison of the tight inner-commitment bounds against base
+1. a commit-pinned comparison of the tight inner-commitment bounds against base
    commit `687a6f8`;
 2. the historical dense-sign versus sparse-ternary JL comparison whose
    sparse-ternary endpoint is `687a6f8`.
@@ -20,6 +20,12 @@ The comparison uses the public repository states directly:
 - **After:** implementation commit `8bb47a4`, which uses the tight Greyhound
   bound, the full LaBRADOR Theorem 5.1 maximum, and the corrected Greyhound
   folded-witness second moment described below.
+
+All measurements in this section are historical snapshots of those two
+commits. The later correction of the Euclidean triviality boundary from
+`(q - 1) / 2` to `q` changes schedule selection, so these proof sizes, schedule
+parameters, and minimum-security values must not be read as measurements of
+the current head. They remain here as reproducible commit-pinned results.
 
 For an `f`-part radix-`2^b` decomposition, define
 `B = 2^((f-1)*b)`. Let `beta` be the source relation's public L2 bound,
@@ -83,7 +89,7 @@ proof members.
 
 ### Schedule changes
 
-| Degree | Top shape, before/after | Top rank `kappa/kappa1`, before/after | Pack members, before/after | Current proof-byte range |
+| Degree | Top shape, before/after | Top rank `kappa/kappa1`, before/after | Pack members, before/after | `8bb47a4` proof-byte range |
 |---:|---:|---:|---:|---:|
 | `2^20` | `425x39 / 434x38` | `21/7 / 22/7` | `6 / 6–7` | 56,263–58,687 |
 | `2^21` | `614x54` | `22/8` | `6–7 / 7` | 59,258–59,356 |

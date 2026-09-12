@@ -35,6 +35,10 @@ typedef struct {
   uint64_t normsq;
 } polcomprf;
 
+#ifdef GREYHOUND_TESTING
+int greyhound_test_schedule(polcomctx *ctx, size_t len);
+#endif
+
 void free_polcomctx(polcomctx *ctx);
 void free_polcomprf(polcomprf *pi);
 

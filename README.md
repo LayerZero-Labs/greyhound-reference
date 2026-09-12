@@ -43,17 +43,24 @@ the accounting boundary explicitly instead of claiming a one-to-one mapping.
 The security mode is a concrete parameter-estimation policy, not an end-to-end
 security proof or implementation audit.
 
-## Current tight-bound reference results
+## Commit-pinned tight-bound reference results
 
-The current implementation was measured locally on an Apple M4 Max with the
-portable backend, eight worker threads, and the `l2-quantum128-adps16` policy.
+The implementation at commit `8bb47a4` was measured locally on an Apple M4 Max
+with the portable backend, eight worker threads, and the
+`l2-quantum128-adps16` policy.
 The completed rows compare five successful, matched deterministic runs at base
 commit `687a6f8` with the corrected implementation at `8bb47a4`. The `2^27`
 and `2^28` rows are five-run current-only measurements. Sizes are exact
 contextual proof bytes. Minimum-security values cover only the SIS instances
 included in accepted proof members.
 
-| Degree | Median proof bytes, base -> current | Change | Top shape and rank `kappa/kappa1`, base -> current | Current minimum quantum bits |
+These are historical, commit-pinned measurements. The later correction of the
+Euclidean triviality boundary from `(q - 1) / 2` to `q` changes schedule
+selection, so the shapes, proof sizes, and minimum-security values below do not
+describe the current head. They are retained for reproducibility until that
+implementation is rebenchmarked.
+
+| Degree | Median proof bytes, base -> `8bb47a4` | Change | Top shape and rank `kappa/kappa1`, base -> `8bb47a4` | `8bb47a4` minimum quantum bits |
 |---:|---:|---:|---:|---:|
 | `2^20` | 55,574 -> 56,345 | +1.39% | `425x39 21/7 -> 434x38 22/7` | 128.260 |
 | `2^21` | 56,677 -> 59,328 | +4.68% | `614x54 22/8` | 128.260 |

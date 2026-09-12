@@ -104,12 +104,14 @@ sis_estimate sis_estimate_l2_core_svp_adps16(size_t rank, size_t width,
   if(!rank || !width || !isfinite(norm) || norm <= 0) return result;
   if(rank > SIZE_MAX/N || width > SIZE_MAX/N) return result;
   result.valid = 1;
-  norm = ceil(norm);
-  if(norm >= (q-1)/2) {
+  /* In Euclidean SIS, q*e_i is the unconditional modular-zero solution.
+   * The centered-representative boundary (q-1)/2 is not a triviality bound. */
+  if(norm >= q) {
     result.trivially_easy = 1;
     result.finite = 1;
     return result;
   }
+  norm = ceil(norm);
   n = rank*N;
   m = width*N;
   logbound = log2(norm);
@@ -153,9 +155,9 @@ int sis_secure(size_t rank, size_t width, double norm) {
   if(!rank || !width || !isfinite(norm) || norm <= 0 ||
      rank > SIZE_MAX/N || width > SIZE_MAX/N)
     return 0;
-  norm = ceil(norm);
-  if(norm >= (q-1)/2)
+  if(norm >= q)
     return 0;
+  norm = ceil(norm);
 
   n = rank*N;
   m = width*N;
@@ -248,7 +250,7 @@ void print_sis_audit_pp(const char *role, size_t rank, size_t width, double l2_b
   if(!estimate.valid)
     printf("      L2 quantum-128 ADPS16: invalid estimator input; FAILS\n");
   else if(estimate.trivially_easy)
-    printf("      L2 quantum-128 ADPS16: trivially easy (B >= (q - 1)/2); FAILS\n");
+    printf("      L2 quantum-128 ADPS16: trivially easy (B >= q); FAILS\n");
   else if(!estimate.finite)
     printf("      L2 quantum-128 ADPS16: no finite Euclidean reduction found; passes 128-bit floor"
            " (d = %zu)\n",estimate.lattice_dimension);
