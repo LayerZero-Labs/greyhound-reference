@@ -77,7 +77,7 @@ test_jlproj_scale: test_jlproj_scale.c data.c data.h jlproj.c jlproj.h polx.c po
 	$(CC) $(CFLAGS) test_jlproj_scale.c jlproj.c data.c polx.c poly.c polz.c parallel.c $(NTT_SOURCES) aesctr.c fips202.c randombytes.c -o test_jlproj_scale -lm
 
 test_sis_estimator: test_sis_estimator.c $(SOURCES) $(HEADERS)
-	$(CC) $(CFLAGS) test_sis_estimator.c $(SOURCES) -o $@ -lm
+	$(CC) $(CFLAGS) -DGREYHOUND_TESTING test_sis_estimator.c $(SOURCES) -o $@ -lm
 
 test_proof_wire: test_proof_wire.c $(SOURCES) $(HEADERS)
 	$(CC) $(CFLAGS) test_proof_wire.c $(SOURCES) -o $@ -lm

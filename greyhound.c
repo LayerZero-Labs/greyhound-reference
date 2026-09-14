@@ -17,7 +17,7 @@
 
 //#define STREAM_WITNESS
 
-static int init_polcomctx(polcomctx *ctx, size_t len) {
+static int schedule_polcomctx(polcomctx *ctx, size_t len) {
   double varz,schedule_norm;
   comparams *cpp = ctx->cpp;
 
@@ -77,6 +77,22 @@ static int init_polcomctx(polcomctx *ctx, size_t len) {
   cpp->u1len = cpp->kappa*cpp->fu*ctx->n;
   cpp->u2len = cpp->fu*ctx->n;
 
+  return 0;
+}
+
+#ifdef GREYHOUND_TESTING
+/* Let the estimator regression exercise large schedules without allocating
+ * the corresponding decomposed witness. */
+int greyhound_test_schedule(polcomctx *ctx, size_t len) {
+  return schedule_polcomctx(ctx,len);
+}
+#endif
+
+static int init_polcomctx(polcomctx *ctx, size_t len) {
+  int ret = schedule_polcomctx(ctx,len);
+  comparams *cpp = ctx->cpp;
+
+  if(ret) return ret;
   ctx->s  = NULL;
 #ifdef STREAM_WITNESS
   ctx->sx = NULL;
